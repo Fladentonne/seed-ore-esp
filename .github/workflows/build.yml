@@ -49,6 +49,26 @@ jobs:
           MC=~/.gradle/caches/fabric-loom/26.3/minecraft-client.jar
           for n in ore_coal ore_coal_buried ore_copper_small ore_copper_large ore_iron ore_iron_small ore_gold ore_gold_buried ore_diamond_small ore_diamond_medium ore_diamond_large ore_diamond_buried ore_lapis ore_lapis_buried ore_redstone ore_ancient_debris_large ore_ancient_debris_small; do echo "CFG $n"; unzip -p "$MC" "data/minecraft/worldgen/feature/$n.json" | tr -d '\n\t '; echo; done
 
+      - name: Dump tags and biome ore steps
+        if: always()
+        run: |
+          MC=~/.gradle/caches/fabric-loom/26.3/minecraft-client.jar
+          for t in height_specific_ore_replaceables base_stone_overworld stone_ore_replaceables deepslate_ore_replaceables; do echo "TAG $t"; unzip -p "$MC" "data/minecraft/tags/block/$t.json" | tr -d '\n\t '; echo; done
+          python3 - "$MC" <<'PY'
+          import sys, zipfile, json
+          z = zipfile.ZipFile(sys.argv[1])
+          for b in ["plains","desert","badlands","dripstone_caves","windswept_hills","jungle","stony_peaks","deep_dark","lush_caves","ocean","river","meadow","taiga","swamp"]:
+              try:
+                  j = json.loads(z.read(f"data/minecraft/worldgen/biome/{b}.json"))
+              except KeyError:
+                  print("BIOME", b, "missing"); continue
+              f = j.get("features", [])
+              print("BIOME", b, "steps", len(f))
+              for step in (6, 7):
+                  if step < len(f):
+                      print("  STEP", step, [x.replace("minecraft:", "") for x in f[step]])
+          PY
+
       - name: Inspect Minecraft classes
         if: steps.build.outcome == 'failure'
         run: |
