@@ -105,6 +105,8 @@ public final class OreManager {
 		EnumMap<OreType, LongArrayList> res = new EnumMap<>(OreType.class);
 		for (OreFeatureDef d : OreDefs.ALL) {
 			if (d.type().nether != nether) continue;
+			// nur Features zeigen, deren Index per Kalibrierung bestaetigt wurde (geratene Werte = falsche Boxen)
+			if (!cfg.index.containsKey(d.name())) continue;
 			LongArrayList list = res.computeIfAbsent(d.type(), t -> new LongArrayList());
 			sim.simulate(d, cfg.indexFor(d), pop, cx, cz, list);
 		}
@@ -158,7 +160,7 @@ public final class OreManager {
 			for (Map.Entry<OreType, LongArrayList> e : m.entrySet()) per[e.getKey().ordinal()] += e.getValue().size();
 		StringBuilder sb = new StringBuilder(CACHE.size() + " Chunks berechnet, ");
 		for (OreType t : OreType.values()) if (per[t.ordinal()] > 0) sb.append(t.label).append(' ').append(per[t.ordinal()]).append(", ");
-		sb.append(drawnLast).append(" Boxen gezeichnet");
+		sb.append(drawnLast).append(" Boxen gezeichnet; kalibriert: ").append(Config.get().index.size()).append(" Features");
 		return sb.toString();
 	}
 
