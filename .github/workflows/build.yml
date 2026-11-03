@@ -37,6 +37,10 @@ jobs:
           done
           echo "=== InputConstants"
           javap -cp "$MC" com.mojang.blaze3d.platform.InputConstants | grep -E "KEY_O|KEY_P|Type" | head
+          for c in net.minecraft.client.player.LocalPlayer net.minecraft.world.entity.player.Player net.minecraft.world.entity.Entity net.minecraft.client.gui.Gui net.minecraft.client.Minecraft; do
+            echo "=== MSG $c"
+            javap -cp "$MC" "$c" | grep -iE "message|overlay|actionbar|chat|status" | head -30
+          done
           exit 1
 
       - uses: actions/upload-artifact@v4
