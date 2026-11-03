@@ -34,6 +34,15 @@ jobs:
           echo "### tags"
           for t in stone_ore_replaceables deepslate_ore_replaceables; do echo "# $t"; unzip -p "$MC" "data/minecraft/tags/block/$t.json" | tr -d '\n\t '; echo; done
 
+      - name: Dump ore feature configs
+        if: always()
+        run: |
+          MC=~/.gradle/caches/fabric-loom/26.3/minecraft-client.jar
+          unzip -l "$MC" | awk '{print $4}' > /tmp/all.txt
+          echo "CFG_DIRS_BEGIN"; grep -E "worldgen/[a-z_]+/" /tmp/all.txt | sed -E 's#(data/minecraft/worldgen/[a-z_]+)/.*#\1#' | sort | uniq -c; echo "CFG_DIRS_END"
+          echo "CFG_FILES_BEGIN"; grep -E "(coal|copper|iron|gold|diamond|lapis|redstone|debris)" /tmp/all.txt | grep -E "worldgen" | head -80; echo "CFG_FILES_END"
+          for f in $(grep -E "worldgen/configured_feature/.*(coal|copper|iron|gold|diamond|lapis|redstone|debris)" /tmp/all.txt | grep -v nether_gold); do echo "### $f"; unzip -p "$MC" "$f" | tr -d '\n\t '; echo; done
+
       - name: Inspect Minecraft classes
         if: steps.build.outcome == 'failure'
         run: |
