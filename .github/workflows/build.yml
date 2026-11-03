@@ -20,7 +20,24 @@ jobs:
           gradle-version: 9.5.1
 
       - name: Build
+        id: build
+        continue-on-error: true
         run: gradle build --stacktrace
+
+      - name: Inspect Minecraft classes
+        if: steps.build.outcome == 'failure'
+        run: |
+          for j in $(find ~/.gradle -name '*.jar' -size +5M 2>/dev/null); do
+            if unzip -l "$j" 2>/dev/null | grep -q 'net/minecraft/client/Minecraft.class'; then MC="$j"; break; fi
+          done
+          echo "MCJAR=$MC"
+          for c in net.minecraft.client.gui.Gui net.minecraft.client.Minecraft 'com.mojang.blaze3d.platform.InputConstants$Type' net.minecraft.client.gui.components.ChatComponent net.minecraft.client.KeyMapping; do
+            echo "=== $c"
+            javap -cp "$MC" "$c" | grep -iE "chat|overlay|screen|actionbar|message|KEYSYM|KeyMapping\(|class |static final .*Type|KEY_O|KEY_P" | head -40
+          done
+          echo "=== InputConstants"
+          javap -cp "$MC" com.mojang.blaze3d.platform.InputConstants | grep -E "KEY_O|KEY_P|Type" | head
+          exit 1
 
       - uses: actions/upload-artifact@v4
         with:
