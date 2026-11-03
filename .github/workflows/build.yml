@@ -43,6 +43,12 @@ jobs:
           echo "CFG_FILES_BEGIN"; grep -E "(coal|copper|iron|gold|diamond|lapis|redstone|debris)" /tmp/all.txt | grep -E "worldgen" | head -80; echo "CFG_FILES_END"
           for f in $(grep -E "worldgen/configured_feature/.*(coal|copper|iron|gold|diamond|lapis|redstone|debris)" /tmp/all.txt | grep -v nether_gold); do echo "### $f"; unzip -p "$MC" "$f" | tr -d '\n\t '; echo; done
 
+      - name: Dump ore feature configs v2
+        if: always()
+        run: |
+          MC=~/.gradle/caches/fabric-loom/26.3/minecraft-client.jar
+          for n in ore_coal ore_coal_buried ore_copper_small ore_copper_large ore_iron ore_iron_small ore_gold ore_gold_buried ore_diamond_small ore_diamond_medium ore_diamond_large ore_diamond_buried ore_lapis ore_lapis_buried ore_redstone ore_ancient_debris_large ore_ancient_debris_small; do echo "CFG $n"; unzip -p "$MC" "data/minecraft/worldgen/feature/$n.json" | tr -d '\n\t '; echo; done
+
       - name: Inspect Minecraft classes
         if: steps.build.outcome == 'failure'
         run: |
