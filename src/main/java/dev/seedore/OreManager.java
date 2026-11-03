@@ -150,7 +150,7 @@ public final class OreManager {
 
 	// ---- Kalibrierung: findet pro Feature den Index, der am besten zu den echten Erzen passt ----
 	public static void chat(Minecraft mc, String msg) {
-		mc.execute(() -> { if (mc.player != null) mc.player.displayClientMessage(Component.literal("[Seed Ore ESP] " + msg), false); });
+		mc.execute(() -> { if (mc.player != null) mc.player.sendSystemMessage(Component.literal("[Seed Ore ESP] " + msg)); });
 	}
 
 	public static void calibrate(Minecraft mc) {
