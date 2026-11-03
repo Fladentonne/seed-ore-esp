@@ -9,7 +9,6 @@ import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
-import org.lwjgl.glfw.GLFW;
 
 public class SeedOreClient implements ClientModInitializer {
 	public static KeyMapping openGui;
@@ -21,19 +20,19 @@ public class SeedOreClient implements ClientModInitializer {
 
 		KeyMapping.Category category = KeyMapping.Category.register(Identifier.fromNamespaceAndPath("seedoresp", "main"));
 		openGui = KeyMappingHelper.registerKeyMapping(
-				new KeyMapping("key.seedoresp.gui", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_O, category));
+				new KeyMapping("key.seedoresp.gui", InputConstants.KEY_O, category));
 		toggle = KeyMappingHelper.registerKeyMapping(
-				new KeyMapping("key.seedoresp.toggle", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_P, category));
+				new KeyMapping("key.seedoresp.toggle", InputConstants.KEY_P, category));
 
 		ClientTickEvents.END_CLIENT_TICK.register(mc -> {
 			while (openGui.consumeClick()) {
-				if (mc.screen == null) mc.setScreenAndShow(new ConfigScreen(null));
+				if (mc.gui.screen() == null) mc.setScreenAndShow(new ConfigScreen(null));
 			}
 			while (toggle.consumeClick()) {
 				Config c = Config.get();
 				c.enabled = !c.enabled;
 				Config.save();
-				mc.gui.setOverlayMessage(Component.literal("Seed Ore ESP: " + (c.enabled ? "AN" : "AUS")), false);
+				if (mc.player != null) mc.player.displayClientMessage(Component.literal("Seed Ore ESP: " + (c.enabled ? "AN" : "AUS")), true);
 				if (c.enabled && c.seedValue() == null) {
 					OreManager.chat(mc, "Noch kein Seed gesetzt - Menü mit der Öffnen-Taste (Standard: O).");
 				}
