@@ -2,11 +2,13 @@ package dev.seedore;
 
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import java.util.BitSet;
-import java.util.Random;
 import net.minecraft.client.multiplayer.ClientLevel;
 import net.minecraft.core.BlockPos;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.tags.BlockTags;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.levelgen.WorldgenRandom;
+import net.minecraft.world.level.levelgen.XoroshiroRandomSource;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.chunk.LevelChunk;
 
@@ -33,17 +35,16 @@ public final class OreSim {
 		this.calib = calib;
 	}
 
-	/** WorldgenRandom.setDecorationSeed: Population-Seed für einen Chunk. */
+	/** Originale Vanilla-Berechnung (Xoroshiro, ab 1.18): Population-Seed fuer einen Chunk. */
 	public static long populationSeed(long seed, int chunkX, int chunkZ) {
-		Random r = new Random(seed);
-		long a = r.nextLong() | 1L;
-		long b = r.nextLong() | 1L;
-		return ((long) (chunkX << 4)) * a + ((long) (chunkZ << 4)) * b ^ seed;
+		WorldgenRandom r = new WorldgenRandom(new XoroshiroRandomSource(0L));
+		return r.setDecorationSeed(seed, chunkX << 4, chunkZ << 4);
 	}
 
 	public void simulate(OreFeatureDef d, int index, long popSeed, int cx, int cz, LongArrayList out) {
 		// WorldgenRandom.setFeatureSeed
-		Random r = new Random(popSeed + index + 10000L * d.step());
+		WorldgenRandom r = new WorldgenRandom(new XoroshiroRandomSource(0L));
+		r.setFeatureSeed(popSeed, index, d.step());
 		if (d.rarity() > 0 && !(r.nextFloat() < 1.0F / d.rarity())) return;
 		int count = d.countMin() == d.countMax() ? d.countMin()
 				: d.countMin() + r.nextInt(d.countMax() - d.countMin() + 1);
@@ -56,7 +57,7 @@ public final class OreSim {
 		}
 	}
 
-	private int sampleY(OreFeatureDef d, Random r) {
+	private int sampleY(OreFeatureDef d, RandomSource r) {
 		int lo = d.lo().resolve(minY, topY);
 		int hi = d.hi().resolve(minY, topY);
 		if (lo > hi) return lo;
@@ -68,7 +69,7 @@ public final class OreSim {
 	}
 
 	// ---- ScatteredOreFeature (Ancient Debris) ----
-	private void scattered(OreFeatureDef d, Random r, int x, int y, int z, LongArrayList out) {
+	private void scattered(OreFeatureDef d, RandomSource r, int x, int y, int z, LongArrayList out) {
 		int n = r.nextInt(d.size() + 1);
 		for (int j = 0; j < n; j++) {
 			int spread = Math.min(j, 7);
@@ -81,7 +82,7 @@ public final class OreSim {
 	}
 
 	// ---- OreFeature (Adern) ----
-	private void vein(OreFeatureDef d, Random r, int x, int y, int z, LongArrayList out) {
+	private void vein(OreFeatureDef d, RandomSource r, int x, int y, int z, LongArrayList out) {
 		int size = d.size();
 		float f = r.nextFloat() * (float) Math.PI;
 		float g = size / 8.0F;
@@ -163,7 +164,7 @@ public final class OreSim {
 	private static int floor(double v) { int i = (int) v; return v < i ? i - 1 : i; }
 
 	/** OreFeature.canPlaceOre: Zielblock prüfen, dann ggf. Luft-Kontakt (discardChanceOnAirExposure). */
-	private boolean canPlace(OreFeatureDef d, int x, int y, int z, Random r) {
+	private boolean canPlace(OreFeatureDef d, int x, int y, int z, RandomSource r) {
 		if (calib) return true;
 		BlockState s = st(x, y, z);
 		if (s != null && !hostOk(d.type(), s)) return false;

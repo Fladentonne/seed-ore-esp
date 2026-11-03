@@ -33,6 +33,7 @@ public class SeedOreClient implements ClientModInitializer {
 				c.enabled = !c.enabled;
 				Config.save();
 				if (mc.player != null) mc.player.sendOverlayMessage(Component.literal("Seed Ore ESP: " + (c.enabled ? "AN" : "AUS")));
+				if (c.enabled) OreManager.chat(mc, OreManager.stats());
 				if (c.enabled && c.seedValue() == null) {
 					OreManager.chat(mc, "Noch kein Seed gesetzt - Menü mit der Öffnen-Taste (Standard: O).");
 				}

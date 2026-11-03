@@ -15,6 +15,7 @@ public final class Config {
 	/** Wird bei jeder Änderung erhöht, die die Berechnung ungültig macht (Seed, Indizes). */
 	public static int rev = 0;
 
+	public int ver = 0;
 	public String seed = "";
 	public boolean enabled = true;
 	public int range = 6;
@@ -36,7 +37,11 @@ public final class Config {
 			Path f = file();
 			if (Files.exists(f)) {
 				Config c = GSON.fromJson(Files.readString(f), Config.class);
-				if (c != null) instance = c;
+				if (c != null) {
+					instance = c;
+					// alte (mit falschem Zufallsgenerator ermittelte) Kalibrierung verwerfen
+					if (c.ver < 2) { c.index.clear(); c.ver = 2; }
+				}
 			}
 		} catch (Exception e) {
 			System.err.println("[seedoresp] Config konnte nicht geladen werden: " + e);

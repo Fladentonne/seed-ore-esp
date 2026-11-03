@@ -29,6 +29,7 @@ public final class OreManager {
 	private static String lastKey = "";
 	private static int ticks;
 	private static volatile boolean calibrating;
+	private static int drawnLast;
 
 	private static long key(int cx, int cz) { return ((long) cx << 32) | (cz & 0xFFFFFFFFL); }
 
@@ -124,6 +125,7 @@ public final class OreManager {
 		double r2 = r * r;
 		BlockPos.MutableBlockPos mp = new BlockPos.MutableBlockPos();
 		int drawn = 0;
+		drawnLast = 0;
 
 		for (int[] o : offsets) {
 			EnumMap<OreType, LongArrayList> co = CACHE.get(key(pcx + o[0], pcz + o[1]));
@@ -142,10 +144,22 @@ public final class OreManager {
 					// abgebaut / ersetzt -> nicht mehr anzeigen
 					if (s.isAir() || !(OreSim.hostOk(t, s) || OreSim.isOre(s))) continue;
 					Gizmos.cuboid(new AABB(x, y, z, x + 1, y + 1, z + 1), style).setAlwaysOnTop();
-					if (++drawn >= cfg.maxBoxes) return;
+					drawnLast = ++drawn;
+					if (drawn >= cfg.maxBoxes) return;
 				}
 			}
 		}
+	}
+
+	/** Kurzer Statusbericht fuer den Chat (Taste P). */
+	public static String stats() {
+		int[] per = new int[OreType.values().length];
+		for (EnumMap<OreType, LongArrayList> m : CACHE.values())
+			for (Map.Entry<OreType, LongArrayList> e : m.entrySet()) per[e.getKey().ordinal()] += e.getValue().size();
+		StringBuilder sb = new StringBuilder(CACHE.size() + " Chunks berechnet, ");
+		for (OreType t : OreType.values()) if (per[t.ordinal()] > 0) sb.append(t.label).append(' ').append(per[t.ordinal()]).append(", ");
+		sb.append(drawnLast).append(" Boxen gezeichnet");
+		return sb.toString();
 	}
 
 	// ---- Kalibrierung: findet pro Feature den Index, der am besten zu den echten Erzen passt ----
@@ -177,35 +191,40 @@ public final class OreManager {
 		Thread t = new Thread(() -> {
 			try {
 				OreSim sim = new OreSim(lv, minY, top, true);
+				int okCount = 0;
 				long[] pops = new long[chunks.size()];
 				for (int i = 0; i < pops.length; i++) pops[i] = OreSim.populationSeed(sd, chunks.get(i)[0], chunks.get(i)[1]);
 				for (OreFeatureDef d : OreDefs.ALL) {
 					if (d.type().nether != nether) continue;
-					int best = -1, bestHits = 0;
+					int best = -1, bestHits = 0, second = 0, bestPred = 0;
 					for (int idx = 0; idx < 64; idx++) {
-						int hits = 0;
+						int hits = 0, pred = 0;
 						for (int c = 0; c < pops.length; c++) {
 							LongArrayList out = new LongArrayList();
 							sim.simulate(d, idx, pops[c], chunks.get(c)[0], chunks.get(c)[1], out);
 							for (int i = 0; i < out.size(); i++) {
 								long pos = out.getLong(i);
+								pred++;
 								BlockState s = sim.st(BlockPos.getX(pos), BlockPos.getY(pos), BlockPos.getZ(pos));
 								if (s != null && OreSim.isOfType(d.type(), s)) hits++;
 							}
 						}
-						if (hits > bestHits) { bestHits = hits; best = idx; }
+						if (hits > bestHits) { second = bestHits; bestHits = hits; best = idx; bestPred = pred; }
+						else if (hits > second) second = hits;
 					}
-					final int fb = best, fh = bestHits;
-					if (fb >= 0 && fh >= 3) {
+					// echter Treffer: klar besser als alle anderen Indizes (Zufallstreffer liegen alle auf aehnlichem Niveau)
+					boolean ok = best >= 0 && bestHits >= 10 && bestHits >= 3 * Math.max(1, second) && bestHits * 10 >= bestPred;
+					final int fb = best, fh = bestHits, fp = bestPred, fs = second;
+					if (ok) {
 						mc.execute(() -> Config.get().index.put(d.name(), fb));
-						chat(mc, d.name() + ": Index " + fb + " (" + fh + " Treffer)");
+						okCount++;
+						chat(mc, d.name() + ": Index " + fb + " gefunden (" + fh + " von " + fp + " Positionen sind echte Erze)");
 					} else {
-						chat(mc, d.name() + ": zu wenig Treffer, behalte Standard " + Config.get().indexFor(d)
-								+ " (geh in Höhlen / zu sichtbaren Erzen und versuch's nochmal)");
+						chat(mc, d.name() + ": NICHT gefunden (bester Index " + fb + ": " + fh + "/" + fp + ", zweitbester " + fs + ")");
 					}
 				}
 				mc.execute(() -> { Config.touch(); Config.save(); });
-				chat(mc, "Kalibrierung fertig.");
+				chat(mc, "Kalibrierung fertig. Erfolgreich: " + okCount + " Features. (0 = Seed falsch oder Version weicht ab)");
 			} catch (Throwable ex) {
 				chat(mc, "Kalibrierung fehlgeschlagen: " + ex);
 			} finally {
