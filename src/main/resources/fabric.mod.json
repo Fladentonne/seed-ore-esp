@@ -1,0 +1,19 @@
+{
+	"schemaVersion": 1,
+	"id": "seedoresp",
+	"version": "${version}",
+	"name": "Seed Ore ESP",
+	"description": "Berechnet aus dem Welt-Seed, wo Erze liegen, und zeigt sie als Block-ESP.",
+	"authors": ["you"],
+	"license": "MIT",
+	"environment": "client",
+	"entrypoints": {
+		"client": ["dev.seedore.SeedOreClient"]
+	},
+	"depends": {
+		"fabricloader": ">=0.19.5",
+		"minecraft": "~26.3",
+		"java": ">=25",
+		"fabric-api": "*"
+	}
+}
