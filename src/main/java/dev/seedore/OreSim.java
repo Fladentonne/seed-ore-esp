@@ -26,6 +26,10 @@ public final class OreSim {
 	/** Kalibrier-Modus: alle vorhergesagten Positionen ausgeben, ohne Block-/Luft-Prüfung. */
 	private final boolean calib;
 	private final BitSet bits = new BitSet();
+	/** Positionen, die in diesem Chunk schon von der Simulation belegt wurden (Vanilla: dort ist dann schon Erz -> Ziel passt nicht mehr). */
+	private final java.util.HashSet<Long> placed = new java.util.HashSet<>();
+
+	public void resetPlaced() { placed.clear(); }
 	private final BlockPos.MutableBlockPos mp = new BlockPos.MutableBlockPos();
 
 	public OreSim(ClientLevel level, int minY, int topY, boolean calib) {
@@ -163,15 +167,19 @@ public final class OreSim {
 	private static double lerp(double t, double a, double b) { return a + t * (b - a); }
 	private static int floor(double v) { int i = (int) v; return v < i ? i - 1 : i; }
 
-	/** OreFeature.canPlaceOre: Zielblock prüfen, dann ggf. Luft-Kontakt (discardChanceOnAirExposure). */
+	/** OreFeature.canPlaceOre: Zielblock pruefen, dann Luft-Kontakt (verbraucht wie in Vanilla einen Zufallswert). */
 	private boolean canPlace(OreFeatureDef d, int x, int y, int z, RandomSource r) {
-		if (calib) return true;
+		long key = BlockPos.asLong(x, y, z);
+		if (placed.contains(key)) return false;
 		BlockState s = st(x, y, z);
 		if (s != null && !hostOk(d.type(), s)) return false;
 		float c = d.discard();
-		if (c <= 0.0F) return true;
-		if (c < 1.0F && r.nextFloat() >= c) return true;
-		return !exposed(x, y, z);
+		boolean ok;
+		if (c <= 0.0F) ok = true;
+		else if (c < 1.0F && r.nextFloat() >= c) ok = true;
+		else ok = !exposed(x, y, z);
+		if (ok) placed.add(key);
+		return ok;
 	}
 
 	private boolean exposed(int x, int y, int z) {
@@ -203,9 +211,10 @@ public final class OreSim {
 		return t.matches(path(s));
 	}
 
-	/** Ist der Block ein Wirtsgestein für dieses Erz (oder schon ein Erz)? */
+	/** Ist der Block ein Wirtsgestein fuer dieses Erz (oder schon dieses Erz selbst)? Andere Erze blockieren. */
 	public static boolean hostOk(OreType t, BlockState s) {
-		if (t.nether) return s.is(BlockTags.BASE_STONE_NETHER) || isOre(s);
-		return s.is(BlockTags.STONE_ORE_REPLACEABLES) || s.is(BlockTags.DEEPSLATE_ORE_REPLACEABLES) || isOre(s);
+		if (isOfType(t, s)) return true;
+		if (t.nether) return s.is(BlockTags.BASE_STONE_NETHER);
+		return s.is(BlockTags.STONE_ORE_REPLACEABLES) || s.is(BlockTags.DEEPSLATE_ORE_REPLACEABLES);
 	}
 }

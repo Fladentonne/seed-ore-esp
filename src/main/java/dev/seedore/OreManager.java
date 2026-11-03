@@ -30,6 +30,7 @@ public final class OreManager {
 	private static int ticks;
 	private static volatile boolean calibrating;
 	private static int drawnLast;
+	private static int drawnReal;
 
 	private static long key(int cx, int cz) { return ((long) cx << 32) | (cz & 0xFFFFFFFFL); }
 
@@ -128,6 +129,7 @@ public final class OreManager {
 		BlockPos.MutableBlockPos mp = new BlockPos.MutableBlockPos();
 		int drawn = 0;
 		drawnLast = 0;
+		drawnReal = 0;
 
 		for (int[] o : offsets) {
 			EnumMap<OreType, LongArrayList> co = CACHE.get(key(pcx + o[0], pcz + o[1]));
@@ -144,9 +146,10 @@ public final class OreManager {
 					if (dx * dx + dy * dy + dz * dz > r2) continue;
 					BlockState s = lv.getBlockState(mp.set(x, y, z));
 					// abgebaut / ersetzt -> nicht mehr anzeigen
-					if (s.isAir() || !(OreSim.hostOk(t, s) || OreSim.isOre(s))) continue;
+					if (s.isAir() || !OreSim.hostOk(t, s)) continue;
 					Gizmos.cuboid(new AABB(x, y, z, x + 1, y + 1, z + 1), style).setAlwaysOnTop();
 					drawnLast = ++drawn;
+					if (OreSim.isOfType(t, s)) drawnReal++;
 					if (drawn >= cfg.maxBoxes) return;
 				}
 			}
@@ -160,7 +163,7 @@ public final class OreManager {
 			for (Map.Entry<OreType, LongArrayList> e : m.entrySet()) per[e.getKey().ordinal()] += e.getValue().size();
 		StringBuilder sb = new StringBuilder(CACHE.size() + " Chunks berechnet, ");
 		for (OreType t : OreType.values()) if (per[t.ordinal()] > 0) sb.append(t.label).append(' ').append(per[t.ordinal()]).append(", ");
-		sb.append(drawnLast).append(" Boxen gezeichnet; kalibriert: ").append(Config.get().index.size()).append(" Features");
+		sb.append(drawnLast).append(" Boxen gezeichnet (davon ").append(drawnReal).append(" mit echtem Erz im Block); kalibriert: ").append(Config.get().index.size()).append(" Features");
 		return sb.toString();
 	}
 
@@ -192,7 +195,7 @@ public final class OreManager {
 		chat(mc, "Kalibrierung gestartet (" + chunks.size() + " Chunks) - das kann etwas dauern ...");
 		Thread t = new Thread(() -> {
 			try {
-				OreSim sim = new OreSim(lv, minY, top, true);
+				OreSim sim = new OreSim(lv, minY, top, false);
 				int okCount = 0;
 				long[] pops = new long[chunks.size()];
 				for (int i = 0; i < pops.length; i++) pops[i] = OreSim.populationSeed(sd, chunks.get(i)[0], chunks.get(i)[1]);
@@ -203,6 +206,7 @@ public final class OreManager {
 						int hits = 0, pred = 0;
 						for (int c = 0; c < pops.length; c++) {
 							LongArrayList out = new LongArrayList();
+							sim.resetPlaced();
 							sim.simulate(d, idx, pops[c], chunks.get(c)[0], chunks.get(c)[1], out);
 							for (int i = 0; i < out.size(); i++) {
 								long pos = out.getLong(i);
@@ -215,7 +219,7 @@ public final class OreManager {
 						else if (hits > second) second = hits;
 					}
 					// echter Treffer: klar besser als alle anderen Indizes (Zufallstreffer liegen alle auf aehnlichem Niveau)
-					boolean ok = best >= 0 && bestHits >= 10 && bestHits >= 3 * Math.max(1, second) && bestHits * 10 >= bestPred;
+					boolean ok = best >= 0 && bestHits >= 10 && bestHits >= 3 * Math.max(1, second) && bestHits * 20 >= bestPred;
 					final int fb = best, fh = bestHits, fp = bestPred, fs = second;
 					if (ok) {
 						mc.execute(() -> Config.get().index.put(d.name(), fb));
