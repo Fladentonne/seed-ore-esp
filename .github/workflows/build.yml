@@ -24,6 +24,16 @@ jobs:
         continue-on-error: true
         run: gradle build --stacktrace
 
+      - name: Dump worldgen ore data
+        if: always()
+        run: |
+          MC=~/.gradle/caches/fabric-loom/26.3/minecraft-client.jar
+          unzip -l "$MC" | awk '{print $4}' | grep -E "worldgen/(placed_feature|configured_feature)/ore_" | sort > /tmp/files.txt
+          echo "ORE_FILES_BEGIN"; cat /tmp/files.txt; echo "ORE_FILES_END"
+          for f in $(cat /tmp/files.txt); do echo "### $f"; unzip -p "$MC" "$f" | tr -d '\n\t '; echo; done
+          echo "### tags"
+          for t in stone_ore_replaceables deepslate_ore_replaceables; do echo "# $t"; unzip -p "$MC" "data/minecraft/tags/block/$t.json" | tr -d '\n\t '; echo; done
+
       - name: Inspect Minecraft classes
         if: steps.build.outcome == 'failure'
         run: |
